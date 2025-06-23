@@ -1,0 +1,10 @@
+[submodule "ros2_ws/src/webxr_api_server"]
+	path = ros2_ws/src/webxr_api_server
+	url = https://github.com/sudhirpratapyadav/webxr_api_server.git
+	branch = teleop
+[submodule "ros2_ws/src/mink"]
+	path = ros2_ws/src/mink
+	url = https://github.com/kevinzakka/mink.git
+[submodule "ros2_ws/src/mujoco_menagerie"]
+	path = ros2_ws/src/mujoco_menagerie
+	url = https://github.com/google-deepmind/mujoco_menagerie.git
