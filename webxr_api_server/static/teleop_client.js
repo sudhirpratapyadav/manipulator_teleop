@@ -153,7 +153,17 @@ async function startXRSession() {
                 button.style.pointerEvents = 'auto';
                 button.style.flex = 'none';
                 button.style.userSelect = 'none';
+                button.style.mozUserSelect = 'none';
+                button.style.msUserSelect = 'none';
+                button.style.webkitTouchCallout = 'none';
+                button.style.webkitTapHighlightColor = 'transparent';
                 button.id = id;
+                
+                // Add event listeners to prevent text selection
+                button.addEventListener('selectstart', (e) => e.preventDefault());
+                button.addEventListener('dragstart', (e) => e.preventDefault());
+                button.addEventListener('contextmenu', (e) => e.preventDefault());
+                
                 return button;
             }
             
