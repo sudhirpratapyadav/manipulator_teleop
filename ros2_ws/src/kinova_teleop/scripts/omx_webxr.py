@@ -12,58 +12,17 @@ from kinova_teleop.msg import WebXRControl
 
 import mink
 
-# Update paths to use MuJoCo Menagerie models
-_ARM_XML = Path("/home/tih/manipulator_teleop/ros2_ws/src/kinova_teleop/models/kinova_gen3/scene.xml")
-_HAND_XML = Path("/home/tih/manipulator_teleop/ros2_ws/src/kinova_teleop/models/robotiq_2f85/2f85.xml")
-
-# Updated HOME_QPOS for Kinova Gen3 with Robotiq 2F85 gripper
-# fmt: off
-HOME_QPOS = [
-    # Kinova Gen3 (joint_1 to joint_7)
-    0, 0.26179939, 3.14159265, -2.26892803, 0, 0.95993109, 1.57079633,
-    # Robotiq 2F85 gripper (all joints that get created after attachment)
-    0, 0, 0, 0, 0, 0, 0, 0
-]
-# fmt: on
-
+from ament_index_python.packages import get_package_share_directory
+_HERE = Path(get_package_share_directory("kinova_teleop")) / "models"
+_XML = _HERE / "omx" / "scene.xml"
 
 # IK parameters
-SOLVER = "daqp"
+SOLVER = "daqp"  # Changed from "quadprog" to "daqp" which is available
 POS_THRESHOLD = 1e-4
 ORI_THRESHOLD = 1e-4
 MAX_ITERS = 20
 ACTION_SCALE = 0.01
 
-
-def construct_model() -> mujoco.MjModel:
-    """
-    Construct a MuJoCo model with a Kinova Gen3 arm and Robotiq 2F85 gripper.
-    """
-    arm = mujoco.MjSpec.from_file(_ARM_XML.as_posix())
-    hand = mujoco.MjSpec.from_file(_HAND_XML.as_posix())
-
-    # Find the base mount of the Robotiq 2F85 gripper
-    base_mount = hand.body("base_mount")
-    base_mount.pos = (0, 0, 0.0)  # Adjust position as needed
-    base_mount.quat = (0, 0, 0, 1)  # Adjust orientation as needed
-    arm.attach(hand, prefix="robotiq_2f85/", site=arm.site("attachment_site"))
-
-    # Remove any existing keyframes and add our own
-    for key in arm.keys:
-        if key.name in ["home", "retract"]:
-            key.delete()
-    arm.add_key(name="home", qpos=HOME_QPOS)
-
-    # Add a mocap body for the target
-    body = arm.worldbody.add_body(name="target", mocap=True)
-    body.add_geom(
-        type=mujoco.mjtGeom.mjGEOM_BOX,
-        size=(0.05,) * 3,
-        contype=0,
-        conaffinity=0,
-        rgba=(0.6, 0.3, 0.3, 0.2),
-    )
-    return arm.compile()
 
 def quaternion_multiply(q1, q2):
     """
@@ -117,39 +76,21 @@ def converge_ik(
     return False
 
 
-class KinovaSimWebXRNode(Node):
+class OmxSimWebXRNode(Node):
     def __init__(self):
-        super().__init__('kinova_sim_webxr_node')
-        # Construct model using the new function
-        self.model = construct_model()
+        super().__init__('omx_sim_webxr_node')
+        # Load model & data
+        self.model = mujoco.MjModel.from_xml_path(_XML.as_posix())
         self.data = mujoco.MjData(self.model)
-        
-        # Create a list of all arm joints (no base joints in this model)
-        # Kinova Gen3 has 7 arm joints (joint1 to joint7)
-        # fmt: off
-        self.joint_names = [
-            "joint_1", "joint_2", "joint_3", "joint_4", "joint_5", "joint_6", "joint_7",
-        ]
-        # fmt: on
-        
-        # Get the joint and actuator IDs
-        self.dof_ids = np.array([self.model.joint(name).id for name in self.joint_names])
-        # Actuator names should match joint names in this model
-        self.actuator_ids = np.array([i for i in range(len(self.joint_names))])
-        
         self.configuration = mink.Configuration(self.model)
         self.end_effector_task = mink.FrameTask(
-            frame_name="robotiq_2f85/pinch",  # Updated to use the Robotiq gripper's pinch site
+            frame_name="pinch_site",
             frame_type="site",
             position_cost=1.0,
             orientation_cost=1.0,
             lm_damping=1.0,
         )
-        
-        # Simple posture task with small cost
         self.posture_task = mink.PostureTask(model=self.model, cost=1e-2)
-        
-        # Just use the end effector and posture tasks
         self.tasks = [self.end_effector_task, self.posture_task]
         
         # Initialize position and quaternion variables
@@ -171,11 +112,11 @@ class KinovaSimWebXRNode(Node):
         self.latest_webxr_quat = np.array([0, 0, 0, 1])  # [x, y, z, w]
         
         # Control states
-        self.gripper_open = False  # Placeholder for future gripper implementation
+        self.gripper_open = False
         self.move_enabled = False
         self.prev_move_enabled = False  # To track changes in move_enabled state
         
-        self.get_logger().info('KinovaSimWebXRNode started, waiting for /webxr/control messages.')
+        self.get_logger().info('OmxSimWebXRNode started, waiting for /webxr/control messages.')
 
     def webxr_control_callback(self, msg):
         """Handle incoming WebXR control data"""
@@ -201,7 +142,7 @@ class KinovaSimWebXRNode(Node):
         self.prev_move_enabled = self.move_enabled
         
         # Update the control states
-        self.gripper_open = msg.gripper_open  # Store for future gripper implementation
+        self.gripper_open = msg.gripper_open
         self.move_enabled = msg.move_enabled
         
         self.get_logger().debug(
@@ -209,32 +150,6 @@ class KinovaSimWebXRNode(Node):
             f'quat({quat[0]:.3f}, {quat[1]:.3f}, {quat[2]:.3f}, {quat[3]:.3f}) '
             f'gripper_open({msg.gripper_open}) move_enabled({msg.move_enabled})'
         )
-        
-    def control_gripper(self, data, position):
-        """
-        Control the Robotiq 2F85 gripper.
-        
-        Args:
-            data: MjData object containing the simulation state
-            position: Normalized position value [0, 1] where:
-                     0 = fully open
-                     1 = fully closed
-        """
-        # Clamp input to valid range [0, 1]
-        position = max(0.0, min(1.0, position))
-        
-        # Map from [0, 1] to actuator control range [0, 255]
-        # The gripper actuator is defined in the XML with ctrlrange="0 255"
-        ctrl_value = position * 255.0
-        
-        # Find the gripper actuator index (assuming it's the last actuator)
-        # For the Robotiq 2F85, the actuator name is "fingers_actuator"
-        gripper_actuator_idx = data.ctrl.shape[0] - 1
-        
-        # Set the control value
-        data.ctrl[gripper_actuator_idx] = ctrl_value
-        
-        return ctrl_value
 
     def sim_loop(self):
         with mujoco.viewer.launch_passive(
@@ -245,16 +160,12 @@ class KinovaSimWebXRNode(Node):
             self.configuration.update(self.data.qpos)
             self.posture_task.set_target_from_configuration(self.configuration)
             mujoco.mj_forward(self.model, self.data)
-            
-            # Initialize the mocap target at the end-effector site
-            mink.move_mocap_to_frame(self.model, self.data, "target", "robotiq_2f85/pinch", "site")
+            mink.move_mocap_to_frame(self.model, self.data, "target", "pich_site", "site")
             
             rate = RateLimiter(frequency=200.0, warn=False)
             while rclpy.ok() and viewer.is_running():
                 rclpy.spin_once(self, timeout_sec=0)
                 dt = rate.dt
-                
-                # viewer.opt.frame = mujoco.mjtFrame.mjFRAME_BODY
                 
                 # Check if move_enabled was just activated (transition from False to True)
                 if self.move_enabled and not self.prev_move_enabled and np.any(self.latest_webxr_pos) and np.any(self.latest_webxr_quat):
@@ -296,13 +207,13 @@ class KinovaSimWebXRNode(Node):
                     # Not calibrated yet, robot will be stationary
                     self.get_logger().debug('Waiting for move_enabled to calibrate WebXR-Robot position')
                 
-                # Implement gripper control based on WebXR gripper state
+                # Control the gripper based on the gripper_open state
                 if hasattr(self, 'gripper_open'):
-                    # Map gripper_open (boolean) to gripper position (0-1)
-                    # 0 = fully open, 1 = fully closed
-                    gripper_position = 0.0 if self.gripper_open else 1.0
-                    self.control_gripper(self.data, gripper_position)
-                    self.get_logger().debug(f'Gripper state: {"open" if self.gripper_open else "closed"}')
+                    # Set gripper width: 0.04 for open, 0.0 for closed
+                    gripper_width = 0.04 if self.gripper_open else 0.0
+                    # The 5th element (index 4) of the control array controls the gripper
+                    self.data.ctrl[4] = gripper_width
+                    self.get_logger().debug(f'Gripper state: {"open" if self.gripper_open else "closed"} (width: {gripper_width})')
                 
                 # Update the end effector task target from the mocap body
                 T_wt = mink.SE3.from_mocap_name(self.model, self.data, "target")
@@ -316,9 +227,12 @@ class KinovaSimWebXRNode(Node):
                     ORI_THRESHOLD,
                     MAX_ITERS,
                 )
+                self.data.ctrl[:4] = self.configuration.q[:4]
                 
-                # Set control for arm joints
-                self.data.ctrl[:len(self.joint_names)] = self.configuration.q[self.dof_ids]
+                # Preserve the gripper control value
+                if hasattr(self, 'gripper_open'):
+                    # Set the 5th element (index 4) to maintain the gripper width
+                    self.data.ctrl[4] = 0.04 if self.gripper_open else 0.0
                 
                 mujoco.mj_step(self.model, self.data)
                 viewer.sync()
@@ -327,7 +241,7 @@ class KinovaSimWebXRNode(Node):
 
 def main(args=None):
     rclpy.init(args=args)
-    node = KinovaSimWebXRNode()
+    node = OmxSimWebXRNode()
     try:
         node.sim_loop()
     except KeyboardInterrupt:

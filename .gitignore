@@ -1,3 +1,8 @@
 ros2_ws/log/
 ros2_ws/build/
 ros2_ws/install/
+__pycache__/
+*.pyc
+
+.vscode/
+

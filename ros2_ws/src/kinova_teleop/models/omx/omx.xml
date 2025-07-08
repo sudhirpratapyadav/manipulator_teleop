@@ -1,0 +1,110 @@
+<mujoco model="omx">
+  <compiler angle="radian" meshdir="assets" eulerseq="zyx"/>
+
+  <option integrator="implicitfast"/>
+
+  <default>
+    <default class="visual">
+      <geom type="mesh" contype="0" conaffinity="0" group="2" rgba="0.75294 0.75294 0.75294 1"/>
+    </default>
+    <default class="collision">
+      <geom type="mesh" group="3"/>
+    </default>
+    <default class="dynamixel">
+      <position kp="500" kv="50" forcerange="-52 52"/>
+    </default>
+    <site size="0.001" rgba="0.5 0.5 0.5 0.3" group="4"/>
+  </default>
+
+  <asset>
+    <mesh name="chain_link1" file="chain_link1.obj" scale="0.001 0.001 0.001" />
+    <mesh name="chain_link2" file="chain_link2.obj" scale="0.001 0.001 0.001" />
+    <mesh name="chain_link3" file="chain_link3.obj" scale="0.001 0.001 0.001" />
+    <mesh name="chain_link4" file="chain_link4.obj" scale="0.001 0.001 0.001" />
+    <mesh name="chain_link5" file="chain_link5.obj" scale="0.001 0.001 0.001" />
+    <mesh name="chain_link_grip_l" file="chain_link_grip_l.obj" scale="0.001 0.001 0.001" />
+    <mesh name="chain_link_grip_r" file="chain_link_grip_r.obj" scale="0.001 0.001 0.001" />
+  </asset>
+
+  <worldbody>
+    <body name="base_link" pos="0 0 0.0065375534171580735" quat="1 0 0 0">
+      <geom class="visual" mesh="chain_link1"/>
+      <geom class="collision" mesh="chain_link1"/>
+      <body name="link2" pos="0.012 0 0.017">
+        <inertial pos="-0.000301849 0.000540437 0.0474335" quat="0.999915 0.000960074 0.0122201 -0.00449872" mass="0.0984068" diaginertia="3.4553e-05 3.26892e-05 1.88409e-05" />
+        <joint name="joint1" pos="0 0 0" axis="0 0 1" range="-2.82743 2.82743" />
+        <geom class="visual" mesh="chain_link2"/>
+        <geom class="collision" mesh="chain_link2"/>
+        <body name="link3" pos="0 0 0.0595">
+          <inertial pos="0.0103084 0.000377434 0.101702" quat="0.71133 0.0466763 0.0513691 0.699423" mass="0.138509" diaginertia="0.000342915 0.000335932 5.49578e-05" />
+          <joint name="joint2" pos="0 0 0" axis="0 1 0" range="-1.79071 1.5708" />
+          <geom class="visual" mesh="chain_link3"/>
+          <geom class="collision" mesh="chain_link3"/>
+          <body name="link4" pos="0.024 0 0.128">
+            <inertial pos="0.0909096 0.000389298 0.000224133" quat="-0.00162881 0.706672 0.0026348 0.707535" mass="0.132746" diaginertia="0.000251551 0.000242311 3.06462e-05" />
+            <joint name="joint3" pos="0 0 0" axis="0 1 0" range="-0.942478 1.3823" />
+            <geom class="visual" mesh="chain_link4"/>
+            <geom class="collision" mesh="chain_link4"/>
+            <body name="link5" pos="0.124 0 0">
+              <inertial pos="0.0442068 3.684e-07 0.00891422" quat="0.479052 0.479052 -0.520105 0.520105" mass="0.143276" diaginertia="9.3211e-05 8.07871e-05 7.59805e-05" />
+              <joint name="joint4" pos="0 0 0" axis="0 1 0" range="-1.79071 2.04204" />
+              <geom class="visual" mesh="chain_link5"/>
+              <geom class="collision" mesh="chain_link5"/>
+              <body name="gripper_link" pos="0.0817 0.021 0">
+                <inertial pos="0 0 0" mass="0.001" diaginertia="0.001 0.001 0.001" />
+                <joint name="gripper" pos="0 0 0" axis="0 1 0" type="slide" range="-0.01 0.019" />
+                <geom class="visual" mesh="chain_link_grip_l"/>
+                <geom class="collision" mesh="chain_link_grip_l"/>
+              </body>
+              <body name="gripper_link_sub" pos="0.0817 -0.021 0">
+                <inertial pos="0 0 0" mass="0.001" diaginertia="0.001 0.001 0.001" />
+                <joint name="gripper_sub" pos="0 0 0" axis="0 -1 0" type="slide" range="-0.01 0.019" />
+                <geom class="visual" mesh="chain_link_grip_r"/>
+                <geom class="collision" mesh="chain_link_grip_r"/>
+              </body>
+              <site name="pinch_site" pos="0.126 0.0 0.0" quat="0 0 0 1"/>
+            </body>
+          </body>
+        </body>
+      </body>
+    </body>
+  </worldbody>
+
+  <actuator>
+    <position class="dynamixel" name="joint1" joint="joint1" ctrlrange="-1 1"/>
+    <position class="dynamixel" name="joint2" joint="joint2" ctrlrange="-1 1"/>
+    <position class="dynamixel" name="joint3" joint="joint3" ctrlrange="-1 1"/>
+    <position class="dynamixel" name="joint4" joint="joint4" ctrlrange="-1 1"/>
+    <position class="dynamixel" name="gripper" joint="gripper" ctrlrange="-1 1"/>
+    <position class="dynamixel" name="gripper_sub" joint="gripper_sub" ctrlrange="-1 1"/>
+  </actuator>
+
+  <!-- <sensor>
+    <actuatorpos name="joint1_p" actuator="joint1" />
+    <actuatorvel name="joint1_v" actuator="joint1" />
+    <actuatorfrc name="joint1_f" actuator="joint1" noise="0.001" />
+    <actuatorpos name="joint2_p" actuator="joint2" />
+    <actuatorvel name="joint2_v" actuator="joint2" />
+    <actuatorfrc name="joint2_f" actuator="joint2" noise="0.001" />
+    <actuatorpos name="joint3_p" actuator="joint3" />
+    <actuatorvel name="joint3_v" actuator="joint3" />
+    <actuatorfrc name="joint3_f" actuator="joint3" noise="0.001" />
+    <actuatorpos name="joint4_p" actuator="joint4" />
+    <actuatorvel name="joint4_v" actuator="joint4" />
+    <actuatorfrc name="joint4_f" actuator="joint4" noise="0.001" />
+    <actuatorpos name="gripper_p" actuator="gripper" />
+    <actuatorvel name="gripper_v" actuator="gripper" />
+    <actuatorfrc name="gripper_f" actuator="gripper" noise="0.001" />
+    <actuatorpos name="gripper_sub_p" actuator="gripper_sub" />
+    <actuatorvel name="gripper_sub_v" actuator="gripper_sub" />
+    <actuatorfrc name="gripper_sub_f" actuator="gripper_sub" noise="0.001" />
+    <framequat name="orientation" objtype="site" noise="0.001" objname="imu" />
+    <gyro name="angular-velocity" site="imu" noise="0.005" cutoff="34.9" />
+  </sensor> -->
+
+  <keyframe>
+    <key name="home" qpos="0 0 0 0 0 0"
+      ctrl="0 0 0 0 0 0"/>
+  </keyframe>
+
+</mujoco>
