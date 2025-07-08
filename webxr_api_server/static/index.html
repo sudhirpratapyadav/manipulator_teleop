@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <!-- Chrome, Firefox OS and Opera -->
+    <meta name="theme-color" content="#4285f4">
+    <!-- iOS Safari -->
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="icon" href="/static/favicon.ico" type="image/x-icon">
+    <title>WebXR Pose Sensor</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+            background-color: #f0f0f0;
+            overscroll-behavior: none; /* Prevent pull to refresh */
+            touch-action: manipulation; /* Disable browser handling of all panning and zooming gestures */
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .connection-card {
+            display: flex;
+            flex-direction: column;
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: #fff;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+            border-left: 5px solid #e74c3c; /* Red border for disconnected */
+        }
+        .connection-card.connected {
+            border-left: 5px solid #2ecc71; /* Green border for connected */
+        }
+        .status-container {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background-color: #e74c3c;
+            margin-right: 10px;
+            transition: background-color 0.3s ease;
+        }
+        /* Pulse animation for connected state */
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(46, 204, 113, 0.4); }
+            70% { box-shadow: 0 0 0 10px rgba(46, 204, 113, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(46, 204, 113, 0); }
+        }
+        .status-indicator.pulse {
+            animation: pulse 2s infinite;
+        }
+        .status-indicator.connected {
+            background-color: #2ecc71;
+        }
+        #connection-status {
+            font-weight: 500;
+            color: #333;
+        }
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .container button {
+            padding: 12px 20px;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            gap: 8px;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+            background-color: #4285f4;
+        }
+        .container button:hover {
+            background-color: #3367d6;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+        /* Disconnect button (connected state) */
+        #connect-btn.connected {
+            background-color: #e74c3c;
+        }
+        #connect-btn.connected:hover {
+            background-color: #c0392b;
+        }
+        .container button:disabled {
+            background-color: #bdc3c7;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>WebXR Pose Sensor</h1>
+        
+        <div class="connection-card" id="connection-card">
+            <div class="status-container">
+                <div id="connection-indicator" class="status-indicator"></div>
+                <span id="connection-status">WebSocket: Disconnected</span>
+            </div>
+            <button id="connect-btn">
+                <span class="btn-text">Connect to Server</span>
+            </button>
+        </div>
+        
+        <div class="controls">
+            <button id="start-xr-btn" disabled>Start AR Session</button>
+        </div>
+    </div>
+
+    <script src="/static/teleop_client.js"></script>
+</body>
+</html>

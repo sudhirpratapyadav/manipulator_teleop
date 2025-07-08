@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <link rel="icon" href="/static/favicon.ico" type="image/x-icon">
+  <title>WebXR Test</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      background-color: #f0f0f0;
+    }
+    button {
+      padding: 15px 30px;
+      background-color: #4285f4;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      font-size: 18px;
+      margin: 10px;
+      cursor: pointer;
+    }
+    #status {
+      margin: 20px 0;
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      width: 90%;
+      max-width: 500px;
+      min-height: 200px;
+      background-color: white;
+      white-space: pre-wrap;
+      overflow-y: auto;
+    }
+  </style>
+</head>
+<body>
+  <h1>WebXR Test</h1>
+  <div>
+    <button id="ar-button">Start AR</button>
+    <button id="vr-button">Start VR</button>
+  </div>
+  <pre id="status">Checking WebXR support...</pre>
+
+  <script>
+    const statusElement = document.getElementById('status');
+    const arButton = document.getElementById('ar-button');
+    const vrButton = document.getElementById('vr-button');
+    
+    // Log function that also updates the UI
+    function log(message) {
+      console.log(message);
+      statusElement.textContent += '\n' + message;
+      statusElement.scrollTop = statusElement.scrollHeight;
+    }
+    
+    // Add exit button to AR/VR session
+    function addExitButton(session) {
+      const exitButton = document.createElement('button');
+      exitButton.id = 'exit-xr-button';
+      exitButton.innerText = 'Exit AR/VR';
+      exitButton.style.position = 'fixed';
+      exitButton.style.bottom = '20px';
+      exitButton.style.left = '50%';
+      exitButton.style.transform = 'translateX(-50%)';
+      exitButton.style.zIndex = '999999';
+      exitButton.style.padding = '12px 24px';
+      exitButton.style.backgroundColor = 'rgba(0, 0, 0, 0.6)';
+      exitButton.style.color = 'white';
+      exitButton.style.border = 'none';
+      exitButton.style.borderRadius = '8px';
+      exitButton.style.fontSize = '16px';
+      exitButton.style.fontWeight = 'bold';
+      exitButton.style.boxShadow = '0 4px 8px rgba(0, 0, 0, 0.2)';
+      
+      exitButton.addEventListener('click', () => {
+        session.end();
+      });
+      
+      document.body.appendChild(exitButton);
+      
+      session.addEventListener('end', () => {
+        if (document.getElementById('exit-xr-button')) {
+          document.getElementById('exit-xr-button').remove();
+        }
+      });
+    }
+    
+    // Check WebXR support
+    function checkXRSupport() {
+      log('Checking WebXR support...');
+      
+      // Check basic navigator.xr existence
+      if (!('xr' in navigator)) {
+        log('❌ WebXR not supported - navigator.xr not available');
+        arButton.disabled = true;
+        vrButton.disabled = true;
+        return;
+      }
+      
+      log('✅ navigator.xr is available');
+      
+      // Check AR support
+      navigator.xr.isSessionSupported('immersive-ar')
+        .then(supported => {
+          if (supported) {
+            log('✅ AR is supported!');
+            arButton.disabled = false;
+          } else {
+            log('❌ AR not supported on this device');
+            arButton.disabled = true;
+          }
+        })
+        .catch(err => {
+          log(`❌ Error checking AR support: ${err.message}`);
+          arButton.disabled = true;
+        });
+        
+      // Check VR support
+      navigator.xr.isSessionSupported('immersive-vr')
+        .then(supported => {
+          if (supported) {
+            log('✅ VR is supported!');
+            vrButton.disabled = false;
+          } else {
+            log('❌ VR not supported on this device');
+            vrButton.disabled = true;
+          }
+        })
+        .catch(err => {
+          log(`❌ Error checking VR support: ${err.message}`);
+          vrButton.disabled = true;
+        });
+    }
+    
+    // Start an AR session
+    arButton.addEventListener('click', async () => {
+      try {
+        log('Starting AR session...');
+        const session = await navigator.xr.requestSession('immersive-ar', {
+          requiredFeatures: ['local']
+        });
+        
+        log('✅ AR session created successfully!');
+        
+        // Set up canvas and GL context
+        const canvas = document.createElement('canvas');
+        document.body.appendChild(canvas);
+        canvas.style.display = 'none';
+        
+        const gl = canvas.getContext('webgl', { xrCompatible: true });
+        if (!gl) {
+          throw new Error('WebGL not supported');
+        }
+        
+        // Configure the session
+        await session.updateRenderState({
+          baseLayer: new XRWebGLLayer(session, gl)
+        });
+        
+        // Get reference space
+        const referenceSpace = await session.requestReferenceSpace('local');
+        
+        // Set up session end handler
+        session.addEventListener('end', () => {
+          log('AR session ended');
+          if (canvas.parentNode) {
+            canvas.parentNode.removeChild(canvas);
+          }
+        });
+        
+        // Add exit button
+        addExitButton(session);
+        
+        // Start the frame loop
+        session.requestAnimationFrame(function onFrame(time, frame) {
+          const pose = frame.getViewerPose(referenceSpace);
+          
+          if (pose) {
+            const position = pose.transform.position;
+            const orientation = pose.transform.orientation;
+            log(`Position: x=${position.x.toFixed(2)}, y=${position.y.toFixed(2)}, z=${position.z.toFixed(2)}`);
+            log(`Quaternion: x=${orientation.x.toFixed(2)}, y=${orientation.y.toFixed(2)}, z=${orientation.z.toFixed(2)}, w=${orientation.w.toFixed(2)}`);
+          }
+          
+          session.requestAnimationFrame(onFrame);
+        });
+        
+      } catch (err) {
+        log(`❌ Error starting AR session: ${err.message}`);
+      }
+    });
+    
+    // Start a VR session
+    vrButton.addEventListener('click', async () => {
+      try {
+        log('Starting VR session...');
+        const session = await navigator.xr.requestSession('immersive-vr', {
+          requiredFeatures: ['local-floor']
+        });
+        
+        log('✅ VR session created successfully!');
+        
+        // Set up canvas and GL context
+        const canvas = document.createElement('canvas');
+        document.body.appendChild(canvas);
+        canvas.style.display = 'none';
+        
+        const gl = canvas.getContext('webgl', { xrCompatible: true });
+        if (!gl) {
+          throw new Error('WebGL not supported');
+        }
+        
+        // Configure the session
+        await session.updateRenderState({
+          baseLayer: new XRWebGLLayer(session, gl)
+        });
+        
+        // Get reference space
+        const referenceSpace = await session.requestReferenceSpace('local-floor');
+        
+        // Set up session end handler
+        session.addEventListener('end', () => {
+          log('VR session ended');
+          if (canvas.parentNode) {
+            canvas.parentNode.removeChild(canvas);
+          }
+        });
+        
+        // Add exit button
+        addExitButton(session);
+        
+        // Start the frame loop
+        session.requestAnimationFrame(function onFrame(time, frame) {
+          const pose = frame.getViewerPose(referenceSpace);
+          
+          if (pose) {
+            const position = pose.transform.position;
+            const orientation = pose.transform.orientation;
+            log(`Position: x=${position.x.toFixed(2)}, y=${position.y.toFixed(2)}, z=${position.z.toFixed(2)}`);
+            log(`Quaternion: x=${orientation.x.toFixed(2)}, y=${orientation.y.toFixed(2)}, z=${orientation.z.toFixed(2)}, w=${orientation.w.toFixed(2)}`);
+          }
+          
+          session.requestAnimationFrame(onFrame);
+        });
+        
+      } catch (err) {
+        log(`❌ Error starting VR session: ${err.message}`);
+      }
+    });
+    
+    // Check support when page loads
+    window.addEventListener('DOMContentLoaded', checkXRSupport);
+  </script>
+</body>
+</html>

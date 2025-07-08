@@ -1,7 +1,7 @@
-[submodule "ros2_ws/src/webxr_api_server"]
-	path = ros2_ws/src/webxr_api_server
+[submodule "webxr_api_server"]
+	path = webxr_api_server
 	url = https://github.com/sudhirpratapyadav/webxr_api_server.git
 	branch = teleop
-[submodule "ros2_ws/src/mink"]
-	path = ros2_ws/src/mink
+[submodule "mink"]
+	path = mink
 	url = https://github.com/kevinzakka/mink.git

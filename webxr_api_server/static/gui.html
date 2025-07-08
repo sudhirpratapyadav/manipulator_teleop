@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="/static/favicon.ico" type="image/x-icon">
+    <title>WebXR Pose Monitor</title>
+    <script src="https://unpkg.com/three@0.142.0/build/three.min.js"></script>
+    <script src="https://unpkg.com/three@0.142.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dat.gui@0.7.9/build/dat.gui.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .connection-card {
+            display: flex;
+            flex-direction: column;
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: #fff;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+            border-left: 5px solid #e74c3c; /* Red border for disconnected */
+        }
+        .connection-card.connected {
+            border-left: 5px solid #2ecc71; /* Green border for connected */
+        }
+        .status-container {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        .status-indicator {
+            width: 15px;
+            height: 15px;
+            border-radius: 50%;
+            background-color: #e74c3c;
+            margin-right: 10px;
+            transition: background-color 0.3s ease;
+        }
+        /* Pulse animation for connected state */
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(46, 204, 113, 0.4); }
+            70% { box-shadow: 0 0 0 10px rgba(46, 204, 113, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(46, 204, 113, 0); }
+        }
+        .status-indicator.pulse {
+            animation: pulse 2s infinite;
+        }
+        .status-indicator.connected {
+            background-color: #2ecc71;
+        }
+        #connection-status {
+            font-weight: 500;
+            color: #333;
+        }
+        .controls {
+            margin-bottom: 20px;
+        }
+        button {
+            padding: 12px 20px;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            gap: 8px;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+        }
+        /* Connect button (disconnected state) */
+        #connect-btn {
+            background-color: #4285f4;
+        }
+        #connect-btn:hover {
+            background-color: #3367d6;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+        /* Disconnect button (connected state) */
+        #connect-btn.connected {
+            background-color: #e74c3c;
+        }
+        #connect-btn.connected:hover {
+            background-color: #c0392b;
+        }
+        button:disabled {
+            background-color: #bdc3c7;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+        .pose-data {
+            background-color: #f9f9f9;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 15px;
+            margin-top: 20px;
+        }
+        .pose-data h3 {
+            margin-top: 0;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 10px;
+            color: #555;
+        }
+        .pose-value {
+            font-family: monospace;
+            white-space: pre-wrap;
+            padding: 10px;
+            background-color: #f0f0f0;
+            border-radius: 3px;
+            overflow-x: auto;
+        }
+        .data-row {
+            display: flex;
+            margin-bottom: 10px;
+            align-items: center;
+        }
+        .data-label {
+            font-weight: bold;
+            width: 120px;
+            color: #555;
+        }
+        .refresh-info {
+            text-align: right;
+            color: #888;
+            font-size: 0.9em;
+            margin-top: 20px;
+        }
+        #visualization-container {
+            width: 100%;
+            height: 400px;
+            position: relative;
+            margin-top: 30px;
+            border-radius: 5px;
+            overflow: hidden;
+            background-color: #f9f9f9;
+        }
+        #visualization-canvas {
+            width: 100%;
+            height: 100%;
+        }
+        /* Styling for dat.GUI */
+        .dg.main {
+            position: absolute !important;
+            top: 10px;
+            right: 10px;
+            z-index: 10;
+            max-height: calc(100% - 20px);
+            overflow-y: auto;
+            border-radius: 5px;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
+        }
+        .dg .close-button {
+            display: none;
+        }
+        .dg .title {
+            background-color: #4285f4 !important;
+        }
+        .dg .cr.number input[type=text] {
+            background: #ffffff;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>WebXR Pose Monitor</h1>
+        
+        <div class="connection-card" id="connection-card">
+            <div class="status-container">
+                <div id="connection-indicator" class="status-indicator"></div>
+                <span id="connection-status">Disconnected</span>
+            </div>
+            <button id="connect-btn">
+                <span class="btn-text">Connect to Server</span>
+            </button>
+        </div>
+        
+        <div class="pose-data">
+            <h3>3D Visualization</h3>
+            <div id="visualization-container">
+                <canvas id="visualization-canvas"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // DOM Elements
+        const connectBtn = document.getElementById('connect-btn');
+        const connectionStatus = document.getElementById('connection-status');
+        const connectionIndicator = document.getElementById('connection-indicator');
+        
+        // Global variables
+        let socket = null;
+        let latestPose = null;
+        
+        // Three.js visualization variables
+        let scene, camera, renderer, controls, smartphone, originAxes, smartphoneAxes;
+        let gui, poseFolder, positionFolder, orientationFolder, datGuiParams;
+        let limitsCube;
+        
+        // Connect to WebSocket server
+        function connectToServer() {
+            // Get the current location to build the WebSocket URL dynamically
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const host = window.location.host;
+            const wsUrl = `${protocol}//${host}/ws`;
+            
+            console.log(`Connecting to WebSocket at: ${wsUrl}`);
+            socket = new WebSocket(wsUrl);
+            
+            socket.onopen = () => {
+                connectionStatus.textContent = 'Connected';
+                connectionIndicator.classList.add('connected');
+                connectionIndicator.classList.add('pulse');
+                document.getElementById('connection-card').classList.add('connected');
+                connectBtn.textContent = 'Disconnect';
+                connectBtn.classList.add('connected');
+            };
+            
+            socket.onclose = () => {
+                connectionStatus.textContent = 'Disconnected';
+                connectionIndicator.classList.remove('connected');
+                connectionIndicator.classList.remove('pulse');
+                document.getElementById('connection-card').classList.remove('connected');
+                connectBtn.textContent = 'Connect to Server';
+                connectBtn.classList.remove('connected');
+            };
+            
+            socket.onerror = (error) => {
+                console.error('WebSocket error:', error);
+                connectionStatus.textContent = 'Connection Error';
+            };
+            
+            socket.onmessage = (event) => {
+                // Parse and update the pose data
+                try {
+                    latestPose = JSON.parse(event.data);
+                    console.log("Received pose data:", latestPose);
+                    
+                    // Update dat.GUI display
+                    updateDatGUI();
+                    
+                    // Update visualization 
+                    updateVisualization();
+                } catch (error) {
+                    console.error('Error parsing pose data:', error);
+                }
+            };
+        }
+        
+        // Disconnect from WebSocket server
+        function disconnectFromServer() {
+            if (socket && socket.readyState === WebSocket.OPEN) {
+                socket.close();
+            }
+        }
+        
+        // Toggle WebSocket connection
+        function toggleConnection() {
+            if (!socket || socket.readyState === WebSocket.CLOSED || socket.readyState === WebSocket.CLOSING) {
+                connectToServer();
+            } else {
+                disconnectFromServer();
+            }
+        }
+        
+        // Event listeners
+        connectBtn.addEventListener('click', toggleConnection);
+        
+        // Initialize Three.js scene
+        function initVisualization() {
+            console.log("Initializing visualization...");
+            
+            // Create scene
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0xf0f0f0);
+            
+            // Create renderer first (needed for OrbitControls)
+            const canvas = document.getElementById('visualization-canvas');
+            renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
+            renderer.setSize(canvas.clientWidth, canvas.clientHeight);
+            console.log("Renderer created with size:", canvas.clientWidth, "x", canvas.clientHeight);
+            
+            // Create camera
+            const container = document.getElementById('visualization-container');
+            const aspect = container.clientWidth / container.clientHeight;
+            camera = new THREE.PerspectiveCamera(75, aspect, 0.001, 10);
+            camera.position.set(0.5, 0.5, 0.5);
+            camera.lookAt(0, 0, 0);
+            console.log("Camera created at position:", camera.position);
+            
+            // Add OrbitControls
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true; // adds smooth inertia
+            controls.dampingFactor = 0.25;
+            controls.screenSpacePanning = false;
+            controls.maxPolarAngle = Math.PI / 1.5; // limit vertical rotation
+            controls.minDistance = 0.1;
+            controls.maxDistance = 2;
+            console.log("OrbitControls added");
+            
+            // Add ambient light
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+            scene.add(ambientLight);
+            
+            // Add directional light
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            directionalLight.position.set(1, 1, 1);
+            scene.add(directionalLight);
+            console.log("Lights added");
+            
+            // Create origin coordinate axes
+            originAxes = createCoordinateAxes(1.0, 0.005);
+            scene.add(originAxes);
+            console.log("Origin axes added");
+            
+            // Create smartphone
+            smartphone = createSmartphone();
+            scene.add(smartphone);
+            console.log("Smartphone added");
+            
+            // Create coordinate axes for the smartphone
+            smartphoneAxes = createCoordinateAxes(0.1, 0.001);
+            smartphone.add(smartphoneAxes);
+            
+            // Create grid
+            const gridHelper = new THREE.GridHelper(2, 20);
+            scene.add(gridHelper);
+            console.log("Grid helper added");
+            
+            // Initialize dat.GUI first (needed for createLimitsCube)
+            initDatGUI();
+            
+            // Create limits cube (wireframe) after datGuiParams is initialized
+            createLimitsCube();
+            
+            // Handle window resize
+            window.addEventListener('resize', onWindowResize);
+            
+            // Start animation loop
+            animate();
+            console.log("Visualization initialization complete");
+        }
+        
+        // Initialize dat.GUI for overlay panel
+        function initDatGUI() {
+            // Parameters for dat.GUI
+            datGuiParams = {
+                position: { x: 0.0, y: 0.0, z: 0.0 },
+                orientation: { x: 0.0, y: 0.0, z: 0.0, w: 1.0 },
+                timestamp: "N/A",
+                resetView: function() {
+                    resetCameraView();
+                },
+                positionLimitsEnabled: false, // Position limits toggle (default: true)
+                positionLimitValue: 1.0     // Value of the position limit in all directions (2 meters total)
+            };
+            
+            // Create GUI
+            gui = new dat.GUI({ autoPlace: true, width: 300 });
+            gui.domElement.id = 'datGUI';
+            const container = document.getElementById('visualization-container');
+            container.appendChild(gui.domElement);
+            
+            // Create a top-level folder called "WebXR Controls"
+            const topFolder = gui.addFolder('WebXR Controls');
+            
+            // Add Pose Data folder as a subfolder
+            poseFolder = topFolder.addFolder('Pose Data');
+            
+            // Add timestamp display to Pose Data folder
+            poseFolder.add(datGuiParams, 'timestamp').name('Timestamp').listen();
+            
+            // Add position folder inside Pose Data
+            positionFolder = poseFolder.addFolder('Position');
+            positionFolder.add(datGuiParams.position, 'x', -2, 2).step(0.001).name('X').listen();
+            positionFolder.add(datGuiParams.position, 'y', -2, 2).step(0.001).name('Y').listen();
+            positionFolder.add(datGuiParams.position, 'z', -2, 2).step(0.001).name('Z').listen();
+            positionFolder.open();
+            
+            // Add orientation folder inside Pose Data
+            orientationFolder = poseFolder.addFolder('Orientation');
+            orientationFolder.add(datGuiParams.orientation, 'x', -1, 1).step(0.001).name('X').listen();
+            orientationFolder.add(datGuiParams.orientation, 'y', -1, 1).step(0.001).name('Y').listen();
+            orientationFolder.add(datGuiParams.orientation, 'z', -1, 1).step(0.001).name('Z').listen();
+            orientationFolder.add(datGuiParams.orientation, 'w', -1, 1).step(0.001).name('W').listen();
+            orientationFolder.open();
+            
+            // Open pose folder by default
+            poseFolder.open();
+            
+            // Create Position Limits folder
+            const positionLimitsFolder = topFolder.addFolder('Position Limits');
+            
+            // Add position limits toggle and value to the position limits folder
+            positionLimitsFolder.add(datGuiParams, 'positionLimitsEnabled').name('Enable Limits').onChange(function() {
+                updateLimitsCube();
+            });
+            
+            positionLimitsFolder.add(datGuiParams, 'positionLimitValue', 0.1, 2.0).step(0.05).name('Limit Value').onChange(function() {
+                updateLimitsCube();
+            });
+            
+            // Open the position limits folder by default
+            positionLimitsFolder.open();
+            
+            // Add reset view button to the top folder (last item)
+            topFolder.add(datGuiParams, 'resetView').name('Reset View');
+            
+            // Open the top folder by default
+            topFolder.open();
+        }
+        
+        // Update dat.GUI with latest pose data
+        function updateDatGUI() {
+            if (!datGuiParams || !latestPose) return;
+            
+            // Update timestamp
+            if (latestPose.timestamp) {
+                datGuiParams.timestamp = latestPose.timestamp;
+            }
+            
+            // Update position
+            if (latestPose.position) {
+                // Force number conversion
+                const posX = Number(latestPose.position.x);
+                const posY = Number(latestPose.position.y);
+                const posZ = Number(latestPose.position.z);
+                
+                // Update the GUI parameters directly
+                datGuiParams.position.x = posX;
+                datGuiParams.position.y = posY;
+                datGuiParams.position.z = posZ;
+                
+                // Log for debugging
+                console.log(`GUI Position updated: (${posX}, ${posY}, ${posZ})`);
+            }
+            
+            // Update orientation
+            if (latestPose.orientation) {
+                // Force number conversion
+                const quatX = Number(latestPose.orientation.x);
+                const quatY = Number(latestPose.orientation.y);
+                const quatZ = Number(latestPose.orientation.z);
+                const quatW = Number(latestPose.orientation.w);
+                
+                // Update the GUI parameters directly
+                datGuiParams.orientation.x = quatX;
+                datGuiParams.orientation.y = quatY;
+                datGuiParams.orientation.z = quatZ;
+                datGuiParams.orientation.w = quatW;
+                
+                // Log for debugging
+                console.log(`GUI Orientation updated: (${quatX}, ${quatY}, ${quatZ}, ${quatW})`);
+            }
+            
+            // Force GUI update
+            for (const controller of gui.__controllers) {
+                controller.updateDisplay();
+            }
+        }
+        
+        // Create smartphone model
+        function createSmartphone() {
+            const phoneGroup = new THREE.Group();
+            
+            // Phone body (main rectangle) - typical smartphone dimensions
+            const bodyGeometry = new THREE.BoxGeometry(0.075, 0.155, 0.008);
+            const bodyMaterial = new THREE.MeshPhongMaterial({ 
+                color: 0x1a1a1a,
+                shininess: 100
+            });
+            const phoneBody = new THREE.Mesh(bodyGeometry, bodyMaterial);
+            phoneBody.castShadow = true;
+            phoneBody.receiveShadow = true;
+            phoneGroup.add(phoneBody);
+            
+            // Screen
+            const screenGeometry = new THREE.BoxGeometry(0.065, 0.135, 0.001);
+            const screenMaterial = new THREE.MeshPhongMaterial({ 
+                color: 0x0a0a0a,
+                shininess: 200,
+                transparent: true,
+                opacity: 0.9
+            });
+            const screen = new THREE.Mesh(screenGeometry, screenMaterial);
+            screen.position.z = 0.0045;
+            phoneGroup.add(screen);
+            
+            // Screen glow effect
+            const glowGeometry = new THREE.BoxGeometry(0.066, 0.136, 0.0005);
+            const glowMaterial = new THREE.MeshBasicMaterial({ 
+                color: 0x4a90e2,
+                transparent: true,
+                opacity: 0.3
+            });
+            const screenGlow = new THREE.Mesh(glowGeometry, glowMaterial);
+            screenGlow.position.z = 0.005;
+            phoneGroup.add(screenGlow);
+            
+            // Speaker
+            const speakerGeometry = new THREE.BoxGeometry(0.02, 0.002, 0.0005);
+            const speakerMaterial = new THREE.MeshPhongMaterial({ 
+                color: 0x444444
+            });
+            const speaker = new THREE.Mesh(speakerGeometry, speakerMaterial);
+            speaker.position.set(0, 0.065, 0.0045);
+            phoneGroup.add(speaker);
+            
+            // Side buttons
+            const sideButtonGeometry = new THREE.BoxGeometry(0.001, 0.012, 0.002);
+            const sideButtonMaterial = new THREE.MeshPhongMaterial({ 
+                color: 0x2a2a2a
+            });
+            
+            // Volume buttons
+            const volumeUp = new THREE.Mesh(sideButtonGeometry, sideButtonMaterial);
+            volumeUp.position.set(-0.038, 0.018, 0);
+            phoneGroup.add(volumeUp);
+            
+            const volumeDown = new THREE.Mesh(sideButtonGeometry, sideButtonMaterial);
+            volumeDown.position.set(-0.038, 0.003, 0);
+            phoneGroup.add(volumeDown);
+            
+            // Power button
+            const powerButton = new THREE.Mesh(sideButtonGeometry, sideButtonMaterial);
+            powerButton.position.set(0.038, 0.012, 0);
+            phoneGroup.add(powerButton);
+            
+            return phoneGroup;
+        }
+        
+        // Create coordinate axes (RGB for XYZ)
+        function createCoordinateAxes(size, thickness = 0.02) {
+            const axesGroup = new THREE.Group();
+            
+            // X-axis (red)
+            const xGeometry = new THREE.CylinderGeometry(thickness, thickness, size, 8);
+            xGeometry.rotateZ(-Math.PI / 2);
+            const xMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+            const xAxis = new THREE.Mesh(xGeometry, xMaterial);
+            xAxis.position.x = size / 2;
+            axesGroup.add(xAxis);
+            
+            // Y-axis (green)
+            const yGeometry = new THREE.CylinderGeometry(thickness, thickness, size, 8);
+            const yMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+            const yAxis = new THREE.Mesh(yGeometry, yMaterial);
+            yAxis.position.y = size / 2;
+            axesGroup.add(yAxis);
+            
+            // Z-axis (blue)
+            const zGeometry = new THREE.CylinderGeometry(thickness, thickness, size, 8);
+            zGeometry.rotateX(Math.PI / 2);
+            const zMaterial = new THREE.MeshBasicMaterial({ color: 0x0000ff });
+            const zAxis = new THREE.Mesh(zGeometry, zMaterial);
+            zAxis.position.z = size / 2;
+            axesGroup.add(zAxis);
+            
+            return axesGroup;
+        }
+        
+        // Create wireframe cube to show position limits
+        function createLimitsCube() {
+            // Check if datGuiParams is initialized
+            if (!datGuiParams) {
+                console.warn("datGuiParams not initialized yet, skipping limits cube creation");
+                return;
+            }
+            
+            // Remove existing limits cube if it exists
+            if (limitsCube) {
+                scene.remove(limitsCube);
+            }
+            
+            // Create wireframe cube geometry
+            const size = datGuiParams.positionLimitValue * 2; // Double the limit value for full cube size
+            const geometry = new THREE.BoxGeometry(size, size, size);
+            
+            // Create wireframe material with red color
+            const wireframeMaterial = new THREE.MeshBasicMaterial({ 
+                color: 0xff0000, 
+                wireframe: true,
+                transparent: true,
+                opacity: 0.6
+            });
+            
+            // Create the cube mesh
+            limitsCube = new THREE.Mesh(geometry, wireframeMaterial);
+            limitsCube.position.set(0, 0, 0); // Center at origin
+            
+            // Only add to scene if limits are enabled
+            if (datGuiParams.positionLimitsEnabled) {
+                scene.add(limitsCube);
+            }
+        }
+        
+        // Update limits cube visibility and size
+        function updateLimitsCube() {
+            if (!limitsCube || !datGuiParams) return;
+            
+            // Update cube size
+            const size = datGuiParams.positionLimitValue * 2;
+            limitsCube.scale.set(1, 1, 1);
+            limitsCube.geometry.dispose();
+            limitsCube.geometry = new THREE.BoxGeometry(size, size, size);
+            
+            // Show/hide based on toggle
+            if (datGuiParams.positionLimitsEnabled) {
+                if (!scene.children.includes(limitsCube)) {
+                    scene.add(limitsCube);
+                }
+            } else {
+                if (scene.children.includes(limitsCube)) {
+                    scene.remove(limitsCube);
+                }
+            }
+        }
+
+        // Update visualization based on pose data
+        function updateVisualization() {
+            if (!smartphone || !latestPose) return;
+            
+            // Update smartphone position if position data is available
+            if (latestPose.position) {
+                // Get the position values
+                let posX = parseFloat(latestPose.position.x);
+                let posY = parseFloat(latestPose.position.y);
+                let posZ = parseFloat(latestPose.position.z);
+                
+                // Apply position limits to keep object visible if enabled
+                if (datGuiParams.positionLimitsEnabled) {
+                    const posLimit = datGuiParams.positionLimitValue;
+                    posX = Math.max(-posLimit, Math.min(posLimit, posX));
+                    posY = Math.max(-posLimit, Math.min(posLimit, posY));
+                    posZ = Math.max(-posLimit, Math.min(posLimit, posZ));
+                    
+                    // Log when limits are applied
+                    console.log(`Position limited to ±${posLimit}`);
+                }
+                
+                // Update smartphone position
+                smartphone.position.set(posX, posY, posZ);
+                
+                // Log position for debugging
+                console.log(`Smartphone position: (${posX.toFixed(2)}, ${posY.toFixed(2)}, ${posZ.toFixed(2)})`);
+            }
+            
+            // Update smartphone orientation if orientation data is available
+            if (latestPose.orientation) {
+                const quaternion = new THREE.Quaternion(
+                    parseFloat(latestPose.orientation.x),
+                    parseFloat(latestPose.orientation.y),
+                    parseFloat(latestPose.orientation.z),
+                    parseFloat(latestPose.orientation.w)
+                );
+                smartphone.quaternion.copy(quaternion);
+            }
+        }
+        
+        // Handle window resize
+        function onWindowResize() {
+            const container = document.getElementById('visualization-container');
+            const width = container.clientWidth;
+            const height = container.clientHeight;
+            
+            camera.aspect = width / height;
+            camera.updateProjectionMatrix();
+            renderer.setSize(width, height);
+        }
+        
+        // Animation loop
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            // Update controls
+            controls.update();
+            
+            // Render the scene
+            renderer.render(scene, camera);
+        }
+
+        // Reset the camera view
+        function resetCameraView() {
+            if (controls) {
+                // Reset camera position
+                camera.position.set(0.5, 0.5, 0.5);
+                camera.lookAt(0, 0, 0);
+                
+                // Reset controls
+                controls.reset();
+                
+                // If smartphone exists, focus on it
+                if (smartphone && latestPose && latestPose.position) {
+                    controls.target.set(
+                        parseFloat(latestPose.position.x) || 0,
+                        parseFloat(latestPose.position.y) || 0,
+                        parseFloat(latestPose.position.z) || 0
+                    );
+                } else {
+                    controls.target.set(0, 0, 0);
+                }
+                
+                controls.update();
+            }
+        }
+        
+        // Initialize the visualization when the page loads
+        document.addEventListener('DOMContentLoaded', initVisualization);
+    </script>
+</body>
+</html>
