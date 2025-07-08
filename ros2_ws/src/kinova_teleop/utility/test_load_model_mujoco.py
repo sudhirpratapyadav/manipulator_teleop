@@ -2,10 +2,6 @@ import mujoco
 import mujoco.viewer
 import os
 
-# current_dir = os.path.dirname(os.path.abspath(__file__))
-# model_path = os.path.join(os.path.dirname(os.path.dirname(current_dir)), 'mujoco_menagerie', 'kinova_gen3', 'scene.xml')
-
-
 current_dir = os.path.dirname(os.path.abspath(__file__))
 model_path = os.path.join(os.path.dirname(current_dir), 'models', 'omx', 'scene.xml')
 
