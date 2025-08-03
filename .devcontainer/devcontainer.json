@@ -42,5 +42,5 @@
   //   "source=${localWorkspaceFolder}/../cache/iron/install,target=/home/ros2_ws/install,type=bind",
   //   "source=${localWorkspaceFolder}/../cache/iron/log,target=/home/ros2_ws/log,type=bind"
   // ],
-  "postCreateCommand": "sudo rosdep update && sudo rosdep install --from-paths /home/tih/manipulator_teleop/ros2_ws/src --ignore-src -y && sudo chown -R $(whoami) /home/tih/manipulator_teleop/ros2_ws/ && cd /home/tih/manipulator_teleop/ros2_ws/ && rm -rf build/ install/ log/ && colcon build --symlink-install && pip install -e /home/tih/manipulator_teleop/mink"
+  "postCreateCommand": "sudo rosdep update && sudo rosdep install --from-paths /home/tih/manipulator_teleop/ros2_ws/src --ignore-src -y && sudo chown -R $(whoami) /home/tih/manipulator_teleop/ros2_ws/ && cd /home/tih/manipulator_teleop/ros2_ws/ && rm -rf build/ install/ log/ && colcon build --symlink-install && pip install -e /home/tih/manipulator_teleop/mink && cd /home/tih/manipulator_teleop/omx_ws/ && rm -rf build/ install/ log/ && colcon build --symlink-install"
 }
