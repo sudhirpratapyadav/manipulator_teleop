@@ -5,7 +5,9 @@
       "Bash(chmod:*)",
       "Bash(colcon build:*)",
       "Bash(source:*)",
-      "Bash(python3:*)"
+      "Bash(python3:*)",
+      "Bash(sed:*)",
+      "Bash(grep:*)"
     ],
     "deny": []
   }
