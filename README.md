@@ -227,3 +227,13 @@ The WebXR interface provides:
 ## Documentation
 
 For detailed information about the ROS2 package configuration, custom messages, and development details, see the [Manip Teleop Package README](ros2_ws/src/manip_teleop/README.md).
+
+
+## Claude Code installation
+```
+sudo apt-get update
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt-get install -y nodejs
+npm install -g @anthropic-ai/claude-code --prefix ~/.npm-global
+echo 'export PATH="$HOME/.npm-global/bin:$PATH"' >> ~/.bashrc
+```

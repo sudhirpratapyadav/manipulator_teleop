@@ -24,6 +24,7 @@ install(PROGRAMS
   scripts/franka_sim.py
   scripts/kinova_sim.py
   scripts/omx_sim.py
+  scripts/omx_real.py
   DESTINATION lib/${PROJECT_NAME}
 )
 

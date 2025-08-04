@@ -72,6 +72,10 @@ RUN pip3 install --no-cache-dir \
     typing_extensions \
     loop-rate-limiters>=0.1.0 \
     "osqp>=0.6.2,<1"
+
+# # Install Node.js 20.x and npm
+# RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+#     && apt-get install -y nodejs
     
 # ********************************************************
 # * Anything else you want to do like clean up goes here *

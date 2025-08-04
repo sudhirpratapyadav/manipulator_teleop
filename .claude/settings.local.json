@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls:*)",
+      "Bash(chmod:*)",
+      "Bash(colcon build:*)",
+      "Bash(source:*)",
+      "Bash(python3:*)"
+    ],
+    "deny": []
+  }
+}
