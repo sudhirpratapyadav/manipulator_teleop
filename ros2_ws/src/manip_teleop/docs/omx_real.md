@@ -303,3 +303,78 @@ omx_real.py (769 lines)
 ```
 
 This architecture ensures reliable, responsive manipulation control with WebXR integration while maintaining thread safety and providing robust error recovery capabilities.
+
+## Running and Testing
+
+### Prerequisites
+
+Before running the omx_real node, ensure that your robot hardware is properly connected and configured.
+
+### Step 1: Launch OMX Controller
+
+First, start the Open Manipulator X hardware controller:
+
+```bash
+ros2 launch open_manipulator_x_bringup hardware.launch.py
+```
+
+This command launches the hardware interface and controllers for the real robot.
+
+### Step 2: Run OMX Real Node
+
+In a new terminal, run the omx_real node:
+
+```bash
+cd /home/tih/manipulator_teleop/ros2_ws
+source install/setup.bash
+ros2 run manip_teleop omx_real.py
+```
+
+The node will go through the initialization sequence:
+1. Wait for action servers to become available
+2. Wait for joint state data from the robot
+3. Sync MuJoCo simulation with real robot state
+4. Move to home position
+5. Test gripper functionality
+6. Enter ready state for WebXR control
+
+### Step 3: Testing Options
+
+You have two options for testing the system:
+
+#### Option A: Command Line Testing
+
+Use the provided test script for basic functionality testing:
+
+```bash
+cd /home/tih/manipulator_teleop/ros2_ws/src/manip_teleop/utility
+python3 test_teleop_translation.py
+```
+
+This script allows you to test basic robot movements and functionality through command line interface.
+
+#### Option B: WebXR Mobile Control
+
+For immersive teleoperation using mobile device:
+
+1. Start the WebXR server (ensure it's properly configured for HTTPS)
+2. Connect your mobile device to the same network
+3. Access the WebXR application through your mobile browser
+4. Use the mobile device's motion sensors and touch interface to control the robot
+
+The system will automatically calibrate the coordinate systems when you first enable movement in WebXR mode.
+
+### Status Monitoring
+
+During operation, monitor the console output for:
+- State machine transitions
+- Action completion status
+- Error messages and recovery attempts
+- WebXR connectivity status
+
+### Safety Notes
+
+- Always ensure the robot workspace is clear before enabling movement
+- Keep the emergency stop accessible
+- Monitor the robot behavior through both the MuJoCo viewer and visual inspection
+- The system includes automatic timeout and error recovery mechanisms

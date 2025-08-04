@@ -12,6 +12,7 @@ This package provides teleoperation capabilities for various robotic manipulator
 - `franka_sim.py`: Franka Panda teleoperation with WebXR
 - `kinova_sim.py`: Kinova Gen3 with Robotiq 2F85 gripper control
 - `omx_sim.py`: Open Manipulator X teleoperation
+- `omx_real.py`: Open Manipulator X real robot control with WebXR ([Documentation](docs/omx_real.md))
 - `loop_rate_limiters.py`: Rate limiting utilities
 
 ### Models
